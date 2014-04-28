@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>SoundFontTest</title>
+</head>
+<body>
+	<h1>SoundFont Test</h1>
+	<form>
+		<input type="file" id="filedialog" name="file" onchange="onSelectedFile()" accept="audio/mid"/>
+	</form>
+	<script src="js/soundfont.js"></script>
+	<script type="text/javascript">
+	var filereader=new FileReader();
+	var file=null;
+	var soundfont=new Soundfont;
+	var fileinfo = function() {
+		var size;
+		var buf;
+	}
+	// file load
+	function load() {
+		if (file == null) { return false; }
+		var extentions = file.name.split(".");
+		if (extentions.length == 0) { return false; };
+		var extention = extentions[extentions.length-1];
+		//if ((extention.toLowerCase() != "mid")) { return false; }
+		filereader.addEventListener('load', this.onRead);
+		filereader.addEventListener('error', this.onReadError);
+		filereader.readAsArrayBuffer(file);
+		return true;
+	};
+	function onRead() {
+		fileinfo.buf = new Uint8Array(filereader.result);
+		file = null;
+		soundfont.getLists(fileinfo.buf);
+	};
+	function onReadError() {
+		file = null;
+		alert("read error!");
+	};
+	function onSelectedFile(e) {
+		file = document.getElementById("filedialog").files[0];
+		if (!load()) alert("load error!");
+	};
+	</script>
+</body>
+</html>
