@@ -44,16 +44,9 @@ Soundfont.prototype = {
 		console.log(this.property);
 		// get preset
 		console.log(this.preset);
-		//for (key in this.lists["pdta"].chunks) {
-		//	var achunkinfo=this.lists["pdta"].chunks[key];
-		//	var ptr=achunkinfo.datatop;
-		//	var data="";
-		//	for (i=0;i<achunkinfo.size;i++) {
-		//		data+=buf[ptr++].toString(16);
-		//	}
-		//	console.log("key:"+key+",data:"+data);
-		//}
+		//debugDumpPdta(this.lists["pdta"]);
 		this.getPreset(buf);
+		debugShowPhdr(this.preset);
 	},
 	getProperty:function(buf) {
 		this.property.init();
@@ -118,16 +111,21 @@ Soundfont.prototype = {
 		achunkinfo=pdta.chunks["phdr"];
 		if (achunkinfo) {
 			var ptr=achunkinfo.datatop;
-			var phdr=this.preset.phdr;
-			for(i=0;i<20;i++) {
-				phdr.name+=String.fromCharCode(buf[ptr++]);
+			while (ptr<achunkinfo.datatop+achunkinfo.size) {
+				var name="";
+				for(i=0;i<20;i++) {
+					name+=String.fromCharCode(buf[ptr++]);
+				}
+				var preset=buf[ptr++]+(buf[ptr++]<<8);
+				var bank=buf[ptr++]+(buf[ptr++]<<8);
+				var idx=buf[ptr++]+(buf[ptr++]<<8);
+				var lib=buf[ptr++]+(buf[ptr++]<<8)+(buf[ptr++]<<16)+(buf[ptr++]<<24);
+				var genre=buf[ptr++]+(buf[ptr++]<<8)+(buf[ptr++]<<16)+(buf[ptr++]<<24);
+				var morph=buf[ptr++]+(buf[ptr++]<<8)+(buf[ptr++]<<16)+(buf[ptr++]<<24);
+				this.preset.phdr.push({
+					name:name,preset:preset,bank:bank,index:idx,library:lib,genre:genre,morphology:morph
+				});
 			}
-			phdr.preset=buf[ptr++]+(buf[ptr++]<<8);
-			phdr.bank=buf[ptr++]+(buf[ptr++]<<8);
-			phdr.index=buf[ptr++]+(buf[ptr++]<<8);
-			phdr.library=buf[ptr++]+(buf[ptr++]<<8)+(buf[ptr++]<<16)+(buf[ptr++]<<24);
-			phdr.genre=buf[ptr++]+(buf[ptr++]<<8)+(buf[ptr++]<<16)+(buf[ptr++]<<24);
-			phdr.morphology=buf[ptr++]+(buf[ptr++]<<8)+(buf[ptr++]<<16)+(buf[ptr++]<<24);
 		}
 		// pbag The Preset Index list
 		achunkinfo=pdta.chunks["pbag"];
@@ -163,10 +161,9 @@ Soundfont.prototype = {
 		if (achunkinfo) {
 			var ptr=achunkinfo.datatop;
 			while (ptr<achunkinfo.datatop+achunkinfo.size) {
-				var lo=buf[ptr++];
-				var hi=buf[ptr++];
-				var amount=buf[ptr++]+(buf[ptr++]<<8);
-				this.preset.pgen.push({rangeLo:lo,rangeHi:hi,amount:amount});				
+				var op=buf[ptr++]+(buf[ptr++]<<8);
+				var val=buf[ptr++]+(buf[ptr++]<<8);
+				this.preset.pgen.push({op:op,value:val});				
 			}
 		}		
 		// inst The Instrument Names and Indices
@@ -197,10 +194,9 @@ Soundfont.prototype = {
 		if (achunkinfo) {
 			var ptr=achunkinfo.datatop;
 			while (ptr<achunkinfo.datatop+achunkinfo.size) {
-				var lo=buf[ptr++];
-				var hi=buf[ptr++];
-				var amount=buf[ptr++]+(buf[ptr++]<<8);
-				this.preset.igen.push({rangeLo:lo,rangeHi:hi,amount:amount});				
+				var op=buf[ptr++]+(buf[ptr++]<<8);
+				var val=buf[ptr++]+(buf[ptr++]<<8);
+				this.preset.pgen.push({op:op,value:val});				
 			}
 		}		
 		// imod The Instrument Modulator list
@@ -277,25 +273,29 @@ Soundfont.prototype = {
 	},
 	preset: {
 		inst:[], // {name:str,index:index}
-		pbag:[], // {rangeLo:lo,rangeHi:hi,amount:amount}
+		pbag:[], // {op:op,value:val}
 		pgen:[], // {genIndex:genIndex,modIndex:modIndex}
-		phdr:{name:"",preset:0,bank:0,index:0,library:0,genre:0,morphology:0},
+		phdr:[], // {name:"",preset:0,bank:0,index:0,library:0,genre:0,morphology:0},
 		pmod:[], // {modDest:,modDest:,modAmount:,modAmountSrc:,ModTarnsform:}
 		ibag:[], // {genIndex:0,modIndex:0}
 		imod:[], // {modDest:,modDest:,modAmount:,modAmountSrc:,ModTarnsform:}
-		igen:[], // {genIndex:genIndex,modIndex:modIndex}
+		igen:[], // {op:op,value:val}
 		shdr:[],
 		init:function() {
 			ibag=[];
 			igen=[];
 			imod=[];
 			inst=[];
-			pbag=[{genNdx:0,modNdx:0}];
+			pbag=[];
 			pgen=[];
-			phdr={name:"",bank:0,preset:0,index:0,library:0,genre:0,morphology:0};
+			phdr=[];
 			pmod=[];
 			shdr=[];
 		}
+	},
+	eGenrator: {
+		0:"startAddrsOffset",
+		1:"endAddrsOffset"
 	},
 	getListChunk:function(ptr) {
 		var buf=fileinfo.buf;
